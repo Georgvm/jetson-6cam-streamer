@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>6 Cameras — Live</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font-family: monospace; }
+  h1 { margin: 0; padding: 8px; font-size: 14px; }
+  .note { padding: 0 8px 8px; font-size: 11px; color: #888; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; }
+  .cell { position: relative; background: #000; aspect-ratio: 4/3; }
+  .cell img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .label { position: absolute; top: 6px; left: 6px; padding: 2px 6px;
+           background: rgba(0,0,0,0.6); font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>6 cameras — live MJPEG passthrough, one port per cam</h1>
+<div class="note">Each cam on a separate port (8080–8085) so the browser treats them as different origins — no per-origin queueing. Zero server-side transcoding.</div>
+<div class="grid">
+  <div class="cell"><img data-port="8080"><span class="label">/dev/video0 — GS</span></div>
+  <div class="cell"><img data-port="8081"><span class="label">/dev/video2 — GS</span></div>
+  <div class="cell"><img data-port="8082"><span class="label">/dev/video4 — GS</span></div>
+  <div class="cell"><img data-port="8083"><span class="label">/dev/video6 — GS</span></div>
+  <div class="cell"><img data-port="8084"><span class="label">/dev/video12 — GS</span></div>
+  <div class="cell"><img data-port="8085"><span class="label">/dev/video8 — H264 cam</span></div>
+</div>
+<script>
+  document.querySelectorAll('img[data-port]').forEach(img => {
+    img.src = `http://${location.hostname}:${img.dataset.port}/stream`;
+  });
+</script>
+</body>
+</html>
