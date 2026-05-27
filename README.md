@@ -50,20 +50,20 @@ The patched module depends on two in-tree modules that the stock `uvcvideo.ko` p
 sudo modprobe -r uvcvideo
 sudo modprobe uvc                  # provides uvc_format_by_guid
 sudo modprobe videobuf2-vmalloc    # provides vb2_vmalloc_memops
-sudo insmod uvcvideo-patch/uvcvideo.ko force_altsetting=5 quirks=128
+sudo insmod uvcvideo-patch/uvcvideo.ko force_altsetting=7 quirks=128
 ```
 
 Verify:
 
 ```
-cat /sys/module/uvcvideo/parameters/force_altsetting   # → 5
+cat /sys/module/uvcvideo/parameters/force_altsetting   # → 7
 cat /sys/module/uvcvideo/parameters/quirks             # → 128
 ```
 
 While any stream is running, you can read the active alt setting per device:
 
 ```
-cat /sys/bus/usb/devices/1-2.2:1.1/bAlternateSetting   # → 5
+cat /sys/bus/usb/devices/1-2.2:1.1/bAlternateSetting   # → 7
 ```
 
 ### Persisting across reboots
@@ -71,7 +71,7 @@ cat /sys/bus/usb/devices/1-2.2:1.1/bAlternateSetting   # → 5
 ```
 sudo cp uvcvideo-patch/uvcvideo.ko /lib/modules/$(uname -r)/updates/
 sudo depmod -a
-echo 'options uvcvideo quirks=128 force_altsetting=5' | sudo tee /etc/modprobe.d/uvcvideo.conf
+echo 'options uvcvideo quirks=128 force_altsetting=7' | sudo tee /etc/modprobe.d/uvcvideo.conf
 ```
 
 ## Running the streamer
@@ -95,11 +95,11 @@ If your device nodes differ, edit the `PORTS` dict at the top of `streamer/strea
 
 ## Choosing `force_altsetting`
 
-The per-frame budget at 10 fps is roughly `bandwidth_Mbps × 0.1 / 8` MB. If you point a cam at a high-detail bright scene and the resulting JPEG exceeds that budget, the frame is truncated and uvcvideo drops it; you see a stuck or partial image. Bump the alt setting up if you see this:
+The per-frame budget at 10 fps is roughly `bandwidth_Mbps × 0.1 / 8` MB. If you point a cam at a high-detail bright scene and the resulting JPEG exceeds that budget, the frame is truncated and uvcvideo drops it; you see a stuck or partial image (only updating when you cover the lens, because then the JPEG compresses small enough to fit).
 
-- alt 5 → ~80 KB/frame budget at 10 fps (six cams ≈ 38 Mbps total)
-- alt 7 → ~128 KB/frame budget at 10 fps (six cams ≈ 61 Mbps total)
-- alt 8 → ~160 KB/frame budget at 10 fps (six cams ≈ 77 Mbps total)
+- alt 5 → ~80 KB/frame budget at 10 fps (six cams ≈ 38 Mbps total). Works for low-detail scenes; fails on high-detail.
+- **alt 7 → ~128 KB/frame budget at 10 fps (six cams ≈ 61 Mbps total). Recommended default for 6× 640×480 @10 fps.**
+- alt 8 → ~160 KB/frame budget at 10 fps (six cams ≈ 77 Mbps total). Headroom for richer scenes.
 
 Even alt 11 across six cams is only ~147 Mbps, so there's plenty of headroom in practice.
 
