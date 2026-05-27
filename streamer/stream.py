@@ -13,7 +13,7 @@ import threading
 import time
 import os
 
-FPS, W, H = 10, 640, 480
+FPS, W, H = 30, 640, 480
 
 # port -> device
 PORTS = {
