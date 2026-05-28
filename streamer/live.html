@@ -18,12 +18,12 @@
 <h1>6 cameras — live MJPEG passthrough, one port per cam</h1>
 <div class="note">Each cam on a separate port (8080–8085) so the browser treats them as different origins — no per-origin queueing. Zero server-side transcoding.</div>
 <div class="grid">
-  <div class="cell"><img data-port="8080"><span class="label">/dev/video0 — GS</span></div>
-  <div class="cell"><img data-port="8081"><span class="label">/dev/video2 — GS</span></div>
-  <div class="cell"><img data-port="8082"><span class="label">/dev/video4 — GS</span></div>
-  <div class="cell"><img data-port="8083"><span class="label">/dev/video6 — GS</span></div>
-  <div class="cell"><img data-port="8084"><span class="label">/dev/video12 — GS</span></div>
-  <div class="cell"><img data-port="8085"><span class="label">/dev/video8 — H264 cam</span></div>
+  <div class="cell"><img data-port="8080"><span class="label">front</span></div>
+  <div class="cell"><img data-port="8081"><span class="label">front_right</span></div>
+  <div class="cell"><img data-port="8082"><span class="label">front_left</span></div>
+  <div class="cell"><img data-port="8083"><span class="label">cam4 (usb-2.2)</span></div>
+  <div class="cell"><img data-port="8084"><span class="label">cam5 (usb-2.1)</span></div>
+  <div class="cell"><img data-port="8085"><span class="label">cam6 H264 (usb-4.2)</span></div>
 </div>
 <script>
   document.querySelectorAll('img[data-port]').forEach(img => {

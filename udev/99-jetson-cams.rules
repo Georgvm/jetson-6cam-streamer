@@ -1,0 +1,8 @@
+# Persistent /dev/cam_<label> symlinks for the 6 USB cams on the Jetson
+# Thor rig. Cams share vendor/product ID 32e4:0234 so they're matched by
+# USB physical port (KERNELS=). ATTR{index}=="0" picks the capture node
+# only (the index=1 sibling is metadata-only).
+
+SUBSYSTEM=="video4linux", KERNELS=="1-4.1.1.1", ATTR{index}=="0", SYMLINK+="cam_front"
+SUBSYSTEM=="video4linux", KERNELS=="1-4.1.1.2", ATTR{index}=="0", SYMLINK+="cam_front_right"
+SUBSYSTEM=="video4linux", KERNELS=="1-4.1.1.3", ATTR{index}=="0", SYMLINK+="cam_front_left"

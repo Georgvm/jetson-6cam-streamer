@@ -1,18 +1,19 @@
-Patch: uvcvideo: add force_altsetting module parameter
+Patch: uvcvideo: add force_altsetting + force_altsetting_fallback
 
 Generated against torvalds/linux v6.8.
 
---- a/uvc_driver.c	2026-05-27 15:36:35.892402098 -0700
-+++ b/uvc_driver.c	2026-05-27 15:35:59.800451060 -0700
-@@ -35,6 +35,7 @@
+--- a/uvc_driver.c	2026-05-27 19:56:03.415519556 -0700
++++ b/uvc_driver.c	2026-05-27 19:55:46.587962204 -0700
+@@ -35,6 +35,8 @@
  static unsigned int uvc_quirks_param = -1;
  unsigned int uvc_dbg_param;
  unsigned int uvc_timeout_param = UVC_CTRL_STREAMING_TIMEOUT;
 +int uvc_force_altsetting_param = -1;
++int uvc_force_altsetting_fallback_param = -1;
  
  /* ------------------------------------------------------------------------
   * Utility functions
-@@ -2378,6 +2379,10 @@
+@@ -2378,6 +2380,16 @@
  MODULE_PARM_DESC(trace, "Trace level bitmask");
  module_param_named(timeout, uvc_timeout_param, uint, 0644);
  MODULE_PARM_DESC(timeout, "Streaming control requests timeout");
@@ -20,12 +21,18 @@ Generated against torvalds/linux v6.8.
 +MODULE_PARM_DESC(force_altsetting,
 +	"Force iso alternate setting N for all UVC streams (-1 = auto, default). "
 +	"Use to constrain USB iso bandwidth when running many cameras on one bus.");
++module_param_named(force_altsetting_fallback,
++	uvc_force_altsetting_fallback_param, int, 0644);
++MODULE_PARM_DESC(force_altsetting_fallback,
++	"Alternate setting to use when force_altsetting is not available on a "
++	"given device (-1 = leave at default-selected alt). Lets you mix cams "
++	"with different alt-setting tables on the same bus.");
  
  /* ------------------------------------------------------------------------
   * Driver initialization and cleanup
---- a/uvc_video.c	2026-05-27 15:36:36.944400726 -0700
-+++ b/uvc_video.c	2026-05-27 15:35:59.800451060 -0700
-@@ -1967,6 +1967,36 @@
+--- a/uvc_video.c	2026-05-27 19:56:03.835508645 -0700
++++ b/uvc_video.c	2026-05-27 19:55:46.587962204 -0700
+@@ -1967,6 +1967,69 @@
  			return -EIO;
  		}
  
@@ -36,13 +43,15 @@ Generated against torvalds/linux v6.8.
 +		 * share a single USB controller.
 +		 */
 +		if (uvc_force_altsetting_param >= 0) {
++			int wanted = uvc_force_altsetting_param;
++			bool found = false;
++
 +			for (i = 0; i < intf->num_altsetting; ++i) {
 +				struct usb_host_interface *alts;
 +				struct usb_host_endpoint *forced_ep;
 +
 +				alts = &intf->altsetting[i];
-+				if (alts->desc.bAlternateSetting !=
-+					uvc_force_altsetting_param)
++				if (alts->desc.bAlternateSetting != wanted)
 +					continue;
 +				forced_ep = uvc_find_endpoint(alts,
 +					stream->header.bEndpointAddress);
@@ -55,20 +64,52 @@ Generated against torvalds/linux v6.8.
 +				dev_info(&stream->dev->udev->dev,
 +					"uvcvideo: forcing alt setting %u (%u B/frame)\n",
 +					altsetting, best_psize);
++				found = true;
 +				break;
++			}
++			/* If the requested alt isn't on this device, use the
++			 * user-specified fallback rather than the default-
++			 * picked largest. Lets cams with shorter alt tables
++			 * share a bus with bigger cams without overrunning
++			 * iso bandwidth.
++			 */
++			if (!found && uvc_force_altsetting_fallback_param >= 0) {
++				int fb = uvc_force_altsetting_fallback_param;
++
++				for (i = 0; i < intf->num_altsetting; ++i) {
++					struct usb_host_interface *alts;
++					struct usb_host_endpoint *forced_ep;
++
++					alts = &intf->altsetting[i];
++					if (alts->desc.bAlternateSetting != fb)
++						continue;
++					forced_ep = uvc_find_endpoint(alts,
++						stream->header.bEndpointAddress);
++					if (forced_ep == NULL)
++						break;
++					altsetting = alts->desc.bAlternateSetting;
++					best_ep = forced_ep;
++					best_psize = uvc_endpoint_max_bpi(
++						stream->dev->udev, forced_ep);
++					dev_info(&stream->dev->udev->dev,
++						"uvcvideo: alt %u unavailable, fallback to %u (%u B/frame)\n",
++						wanted, altsetting, best_psize);
++					break;
++				}
 +			}
 +		}
 +
  		uvc_dbg(stream->dev, VIDEO,
  			"Selecting alternate setting %u (%u B/frame bandwidth)\n",
  			altsetting, best_psize);
---- a/uvcvideo.h	2026-05-27 15:36:37.340400211 -0700
-+++ b/uvcvideo.h	2026-05-27 15:35:59.800451060 -0700
-@@ -636,6 +636,7 @@
+--- a/uvcvideo.h	2026-05-27 19:56:04.099501790 -0700
++++ b/uvcvideo.h	2026-05-27 19:55:46.587962204 -0700
+@@ -636,6 +636,8 @@
  extern unsigned int uvc_dbg_param;
  extern unsigned int uvc_timeout_param;
  extern unsigned int uvc_hw_timestamps_param;
 +extern int uvc_force_altsetting_param;
++extern int uvc_force_altsetting_fallback_param;
  
  #define uvc_dbg(_dev, flag, fmt, ...)					\
  do {									\

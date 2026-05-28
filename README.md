@@ -4,8 +4,9 @@ Stream all 6 USB cameras on a Jetson Thor (5× Global Shutter + 1× H264) live i
 
 The stock `uvcvideo` kernel module always picks the largest USB iso alternate setting (≈24 Mbps per cam) regardless of the negotiated resolution and frame rate, so the bus saturates after 4 cams and any 5th `VIDIOC_STREAMON` returns `ENOSPC`. This repo contains:
 
-1. **`uvcvideo-patch/`** — a small patch to `drivers/media/usb/uvc/` that adds a `force_altsetting=N` module parameter. With `force_altsetting=5`, every camera reserves ~6 Mbps of iso bandwidth, easily fitting six cams on one USB2 bus.
-2. **`streamer/`** — a Python HTTP server that serves each camera as a pass-through MJPEG stream on its own port (8080–8085) so the browser sees six different origins and never hits a per-origin connection cap.
+1. **`uvcvideo-patch/`** — a small patch to `drivers/media/usb/uvc/` that adds two module parameters: `force_altsetting=N` (used for every UVC stream) and `force_altsetting_fallback=N` (used only when the device doesn't have the requested alt). The fallback lets you mix cams with different alt-setting tables on the same bus — e.g. five GS cams at alt 7 + one H264 cam (which tops out at alt 6) at alt 4.
+2. **`streamer/`** — a Python HTTP server, one port per camera (8080–8085), each serving the cam as zero-copy MJPEG so the browser sees six origins and never hits a per-origin connection cap.
+3. **`udev/`** — a udev rules file that creates persistent `/dev/cam_<label>` symlinks bound to USB port paths, so the front/front-left/front-right cameras keep their identities across reboots and reconnects.
 
 Tested on Jetson Thor running L4T 6.8.12-tegra. The patch is built from mainline Linux v6.8 source — `uvcvideo` is bus-generic, so it builds fine against the Tegra kernel headers.
 
@@ -50,20 +51,22 @@ The patched module depends on two in-tree modules that the stock `uvcvideo.ko` p
 sudo modprobe -r uvcvideo
 sudo modprobe uvc                  # provides uvc_format_by_guid
 sudo modprobe videobuf2-vmalloc    # provides vb2_vmalloc_memops
-sudo insmod uvcvideo-patch/uvcvideo.ko force_altsetting=9 quirks=128
+sudo insmod uvcvideo-patch/uvcvideo.ko force_altsetting=7 force_altsetting_fallback=4 quirks=128
 ```
 
 Verify:
 
 ```
-cat /sys/module/uvcvideo/parameters/force_altsetting   # → 9
+cat /sys/module/uvcvideo/parameters/force_altsetting           # → 7
+cat /sys/module/uvcvideo/parameters/force_altsetting_fallback  # → 4
 cat /sys/module/uvcvideo/parameters/quirks             # → 128
 ```
 
 While any stream is running, you can read the active alt setting per device:
 
 ```
-cat /sys/bus/usb/devices/1-2.2:1.1/bAlternateSetting   # → 9
+cat /sys/bus/usb/devices/1-4.1.1.1:1.1/bAlternateSetting   # → 7  (GS cam)
+cat /sys/bus/usb/devices/1-4.2:1.1/bAlternateSetting       # → 4  (H264 cam, via fallback)
 ```
 
 ### Persisting across reboots
@@ -71,7 +74,7 @@ cat /sys/bus/usb/devices/1-2.2:1.1/bAlternateSetting   # → 9
 ```
 sudo cp uvcvideo-patch/uvcvideo.ko /lib/modules/$(uname -r)/updates/
 sudo depmod -a
-echo 'options uvcvideo quirks=128 force_altsetting=9' | sudo tee /etc/modprobe.d/uvcvideo.conf
+echo 'options uvcvideo quirks=128 force_altsetting=7 force_altsetting_fallback=4' | sudo tee /etc/modprobe.d/uvcvideo.conf
 ```
 
 ## Running the streamer
@@ -104,7 +107,8 @@ Tested combinations on 6× cams sharing one USB2 bus:
 | 5 | 10 | ~80 KB | ~38 Mbps | low-detail scenes only; busy scenes get stuck |
 | 7 | 10 | ~128 KB | ~61 Mbps | OK at 10 fps |
 | 7 | 30 | ~42 KB | ~61 Mbps | smooth on most cams, busy scenes drop frames |
-| **9** | **30** | **~66 KB** | **~95 Mbps** | **smooth across all cams (recommended)** |
+| 9 | 30 | ~66 KB | ~95 Mbps | smooth across all five GS cams; H264 cam can't slot in |
+| **7 + fallback 4** | **30** | **~42 KB / ~53 KB** | **~64 Mbps** | **all 6 cams (5 GS + H264) live; recommended for mixed hardware** |
 
 Even alt 11 across six cams is only ~147 Mbps, so there's plenty of headroom — bump higher if a particular cam still hiccups on very rich scenes.
 

@@ -36,6 +36,7 @@ static unsigned int uvc_quirks_param = -1;
 unsigned int uvc_dbg_param;
 unsigned int uvc_timeout_param = UVC_CTRL_STREAMING_TIMEOUT;
 int uvc_force_altsetting_param = -1;
+int uvc_force_altsetting_fallback_param = -1;
 
 /* ------------------------------------------------------------------------
  * Utility functions
@@ -2383,6 +2384,12 @@ module_param_named(force_altsetting, uvc_force_altsetting_param, int, 0644);
 MODULE_PARM_DESC(force_altsetting,
 	"Force iso alternate setting N for all UVC streams (-1 = auto, default). "
 	"Use to constrain USB iso bandwidth when running many cameras on one bus.");
+module_param_named(force_altsetting_fallback,
+	uvc_force_altsetting_fallback_param, int, 0644);
+MODULE_PARM_DESC(force_altsetting_fallback,
+	"Alternate setting to use when force_altsetting is not available on a "
+	"given device (-1 = leave at default-selected alt). Lets you mix cams "
+	"with different alt-setting tables on the same bus.");
 
 /* ------------------------------------------------------------------------
  * Driver initialization and cleanup

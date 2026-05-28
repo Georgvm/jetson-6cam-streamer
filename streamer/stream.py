@@ -17,12 +17,12 @@ FPS, W, H = 30, 640, 480
 
 # port -> device
 PORTS = {
-    8080: "/dev/video0",
-    8081: "/dev/video2",
-    8082: "/dev/video4",
-    8083: "/dev/video6",
-    8084: "/dev/video12",
-    8085: "/dev/video8",
+    8080: "/dev/cam_front",
+    8081: "/dev/cam_front_right",
+    8082: "/dev/cam_front_left",
+    8083: "/dev/video6",   # GS at usb-2.2 (unlabelled)
+    8084: "/dev/video8",   # GS at usb-2.1 (unlabelled)
+    8085: "/dev/video10",  # H264 USB cam at usb-4.2 (MJPG mode, alt 4 fallback)
 }
 PAGE_PORT = 8080  # also serves the HTML grid at /
 

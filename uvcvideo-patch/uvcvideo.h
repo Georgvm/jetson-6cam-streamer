@@ -637,6 +637,7 @@ extern unsigned int uvc_dbg_param;
 extern unsigned int uvc_timeout_param;
 extern unsigned int uvc_hw_timestamps_param;
 extern int uvc_force_altsetting_param;
+extern int uvc_force_altsetting_fallback_param;
 
 #define uvc_dbg(_dev, flag, fmt, ...)					\
 do {									\

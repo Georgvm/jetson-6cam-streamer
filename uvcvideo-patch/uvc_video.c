@@ -1974,13 +1974,15 @@ static int uvc_video_start_transfer(struct uvc_streaming *stream,
 		 * share a single USB controller.
 		 */
 		if (uvc_force_altsetting_param >= 0) {
+			int wanted = uvc_force_altsetting_param;
+			bool found = false;
+
 			for (i = 0; i < intf->num_altsetting; ++i) {
 				struct usb_host_interface *alts;
 				struct usb_host_endpoint *forced_ep;
 
 				alts = &intf->altsetting[i];
-				if (alts->desc.bAlternateSetting !=
-					uvc_force_altsetting_param)
+				if (alts->desc.bAlternateSetting != wanted)
 					continue;
 				forced_ep = uvc_find_endpoint(alts,
 					stream->header.bEndpointAddress);
@@ -1993,7 +1995,38 @@ static int uvc_video_start_transfer(struct uvc_streaming *stream,
 				dev_info(&stream->dev->udev->dev,
 					"uvcvideo: forcing alt setting %u (%u B/frame)\n",
 					altsetting, best_psize);
+				found = true;
 				break;
+			}
+			/* If the requested alt isn't on this device, use the
+			 * user-specified fallback rather than the default-
+			 * picked largest. Lets cams with shorter alt tables
+			 * share a bus with bigger cams without overrunning
+			 * iso bandwidth.
+			 */
+			if (!found && uvc_force_altsetting_fallback_param >= 0) {
+				int fb = uvc_force_altsetting_fallback_param;
+
+				for (i = 0; i < intf->num_altsetting; ++i) {
+					struct usb_host_interface *alts;
+					struct usb_host_endpoint *forced_ep;
+
+					alts = &intf->altsetting[i];
+					if (alts->desc.bAlternateSetting != fb)
+						continue;
+					forced_ep = uvc_find_endpoint(alts,
+						stream->header.bEndpointAddress);
+					if (forced_ep == NULL)
+						break;
+					altsetting = alts->desc.bAlternateSetting;
+					best_ep = forced_ep;
+					best_psize = uvc_endpoint_max_bpi(
+						stream->dev->udev, forced_ep);
+					dev_info(&stream->dev->udev->dev,
+						"uvcvideo: alt %u unavailable, fallback to %u (%u B/frame)\n",
+						wanted, altsetting, best_psize);
+					break;
+				}
 			}
 		}
 
